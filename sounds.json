@@ -1,0 +1,83 @@
+{
+  "version": "1.0.0",
+  "sounds": [
+    {
+      "id": "zelda-secret",
+      "name": "解谜成功",
+      "group": "塞尔达传说",
+      "file": "sounds/zelda-secret.mp3"
+    },
+    {
+      "id": "zelda-korok",
+      "name": "发现克洛格 (Yahaha!)",
+      "group": "塞尔达传说",
+      "file": "sounds/zelda-korok.mp3"
+    },
+    {
+      "id": "zelda-item",
+      "name": "获得道具",
+      "group": "塞尔达传说",
+      "file": "sounds/zelda-item.mp3"
+    },
+    {
+      "id": "zelda-rupee",
+      "name": "拾取卢比",
+      "group": "塞尔达传说",
+      "file": "sounds/zelda-rupee.mp3"
+    },
+    {
+      "id": "stardew-fishing",
+      "name": "钓鱼上钩",
+      "group": "星露谷物语",
+      "file": "sounds/stardew-fishing.mp3"
+    },
+    {
+      "id": "stardew-valley",
+      "name": "经典提示",
+      "group": "星露谷物语",
+      "file": "sounds/stardew-valley.mp3"
+    },
+    {
+      "id": "mc-xp",
+      "name": "经验球",
+      "group": "Minecraft",
+      "file": "sounds/mc-xp.mp3"
+    },
+    {
+      "id": "mc-levelup",
+      "name": "升级提示",
+      "group": "Minecraft",
+      "file": "sounds/mc-levelup.mp3"
+    },
+    {
+      "id": "pokemon-heal",
+      "name": "精灵中心回复",
+      "group": "宝可梦",
+      "file": "sounds/pokemon-heal.mp3"
+    },
+    {
+      "id": "pokemon-levelup",
+      "name": "升级音效",
+      "group": "宝可梦",
+      "file": "sounds/pokemon-levelup.mp3"
+    },
+    {
+      "id": "mario-coin",
+      "name": "超级马里奥 · 吃金币",
+      "group": "其他经典",
+      "file": "sounds/mario-coin.mp3"
+    },
+    {
+      "id": "ac-greetings",
+      "name": "动物森友会 · 打招呼",
+      "group": "其他经典",
+      "file": "sounds/ac-greetings.mp3"
+    },
+    {
+      "id": "discord-notify",
+      "name": "Discord · 消息提示",
+      "group": "其他经典",
+      "file": "sounds/discord-notify.mp3"
+    }
+  ]
+}
