@@ -10,7 +10,7 @@
 (function () {
     'use strict';
 
-    const SCRIPT_VERSION = '1.1.0';
+    const SCRIPT_VERSION = '1.1.1';
     const REPO = 'cone97218-alt/sounds';
     const BRANCH = 'main';
     const STORAGE_KEY = 'st_msg_sound_replacer_v1';
@@ -40,6 +40,7 @@
         { id: 'zelda-item', name: '获得道具', group: '塞尔达传说', file: 'sounds/zelda-item.mp3' },
         { id: 'zelda-rupee', name: '拾取卢比', group: '塞尔达传说', file: 'sounds/zelda-rupee.mp3' },
         { id: 'stardew-fishing', name: '钓鱼上钩', group: '星露谷物语', file: 'sounds/stardew-fishing.mp3' },
+        { id: 'stardew-valley', name: '清晨旋律 (柔和淡出)', group: '星露谷物语', file: 'sounds/stardew-valley.mp3', maxDuration: 3.8, fadeOut: 1.3 },
         { id: 'mc-xp', name: '经验球', group: 'Minecraft', file: 'sounds/mc-xp.mp3' },
         { id: 'mc-levelup', name: '升级提示', group: 'Minecraft', file: 'sounds/mc-levelup.mp3' },
         { id: 'pokemon-heal', name: '精灵中心回复', group: '宝可梦', file: 'sounds/pokemon-heal.mp3' },
@@ -306,16 +307,30 @@
         source.buffer = buffer;
 
         const gainNode = ctx.createGain();
-        gainNode.gain.setValueAtTime(gainValue, ctx.currentTime);
+        const now = ctx.currentTime;
+        const item = soundsList.find(s => s.id === config.soundId);
+        const maxDur = (item && typeof item.maxDuration === 'number' && item.maxDuration > 0)
+            ? Math.min(buffer.duration, item.maxDuration)
+            : buffer.duration;
+        const fadeOut = (item && typeof item.fadeOut === 'number' && item.fadeOut > 0)
+            ? Math.min(item.fadeOut, maxDur * 0.8)
+            : 0;
+
+        gainNode.gain.setValueAtTime(gainValue, now);
+        if (fadeOut > 0 && gainValue > 0.0001) {
+            const fadeStart = Math.max(0, maxDur - fadeOut);
+            gainNode.gain.setValueAtTime(gainValue, now + fadeStart);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + maxDur);
+        }
 
         if (gainValue > 1.0) {
             // 超过 100% 时串接防破音限幅器（软压缩），既提响度又防爆音
             const limiter = ctx.createDynamicsCompressor();
-            limiter.threshold.setValueAtTime(-2, ctx.currentTime);
-            limiter.knee.setValueAtTime(6, ctx.currentTime);
-            limiter.ratio.setValueAtTime(12, ctx.currentTime);
-            limiter.attack.setValueAtTime(0.002, ctx.currentTime);
-            limiter.release.setValueAtTime(0.1, ctx.currentTime);
+            limiter.threshold.setValueAtTime(-2, now);
+            limiter.knee.setValueAtTime(6, now);
+            limiter.ratio.setValueAtTime(12, now);
+            limiter.attack.setValueAtTime(0.002, now);
+            limiter.release.setValueAtTime(0.1, now);
 
             source.connect(gainNode);
             gainNode.connect(limiter);
@@ -329,7 +344,11 @@
         source.onended = () => {
             if (activeSource === source) activeSource = null;
         };
-        source.start(0);
+        if (maxDur < buffer.duration) {
+            source.start(now, 0, maxDur);
+        } else {
+            source.start(now);
+        }
         return true;
     }
 
