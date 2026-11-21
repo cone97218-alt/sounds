@@ -1,12 +1,16 @@
 /**
  * SillyTavern 消息提示音替换脚本（酒馆助手 / JS-Slash-Runner）
  * 仓库: https://github.com/cone97218-alt/sounds
- * 说明: 仅替换酒馆自带的提示音音源并支持音量调节，开关仍由酒馆「用户设置 -> 杂项」控制。
+ * 版本: 1.1.0
+ * 说明:
+ * - 仅替换酒馆自带提示音音源并提供 0%~300% 音量增益，开关仍由酒馆「用户设置 -> 杂项」控制。
+ * - 使用 Web Audio API（GainNode + 防破音限幅器）实现超 100% 增益，同时解决移动端音量滑块限制。
+ * - 严格按需懒加载：启动时仅加载当前选中的 1 个音效，不拖慢酒馆加载速度。
  */
 (function () {
     'use strict';
 
-    const SCRIPT_VERSION = '1.0.0';
+    const SCRIPT_VERSION = '1.1.0';
     const REPO = 'cone97218-alt/sounds';
     const BRANCH = 'main';
     const STORAGE_KEY = 'st_msg_sound_replacer_v1';
@@ -14,6 +18,8 @@
     const STYLE_ID = 'st-msr-style';
     const PANEL_ID = 'st-msr-panel';
     const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2MB
+    const MAX_VOLUME = 3.0; // 300%
+    const MAX_CACHE_ITEMS = 12;
 
     const topWin = (window.parent && window.parent !== window) ? window.parent : window;
     const topDoc = topWin.document;
@@ -27,21 +33,42 @@
         }
     }
 
-    // 内置保底音效列表（远程 sounds.json 拉取成功时会被最新清单替换）
+    // 保底音效列表（远程 sounds.json 拉取成功时会被最新清单替换）
     const FALLBACK_SOUNDS = [
         { id: 'zelda-secret', name: '解谜成功', group: '塞尔达传说', file: 'sounds/zelda-secret.mp3' },
         { id: 'zelda-korok', name: '发现克洛格 (Yahaha!)', group: '塞尔达传说', file: 'sounds/zelda-korok.mp3' },
         { id: 'zelda-item', name: '获得道具', group: '塞尔达传说', file: 'sounds/zelda-item.mp3' },
         { id: 'zelda-rupee', name: '拾取卢比', group: '塞尔达传说', file: 'sounds/zelda-rupee.mp3' },
         { id: 'stardew-fishing', name: '钓鱼上钩', group: '星露谷物语', file: 'sounds/stardew-fishing.mp3' },
-        { id: 'stardew-valley', name: '经典提示', group: '星露谷物语', file: 'sounds/stardew-valley.mp3' },
         { id: 'mc-xp', name: '经验球', group: 'Minecraft', file: 'sounds/mc-xp.mp3' },
         { id: 'mc-levelup', name: '升级提示', group: 'Minecraft', file: 'sounds/mc-levelup.mp3' },
         { id: 'pokemon-heal', name: '精灵中心回复', group: '宝可梦', file: 'sounds/pokemon-heal.mp3' },
         { id: 'pokemon-levelup', name: '升级音效', group: '宝可梦', file: 'sounds/pokemon-levelup.mp3' },
-        { id: 'mario-coin', name: '超级马里奥 · 吃金币', group: '其他经典', file: 'sounds/mario-coin.mp3' },
-        { id: 'ac-greetings', name: '动物森友会 · 打招呼', group: '其他经典', file: 'sounds/ac-greetings.mp3' },
-        { id: 'discord-notify', name: 'Discord · 消息提示', group: '其他经典', file: 'sounds/discord-notify.mp3' },
+        { id: 'mario-coin', name: '吃金币', group: '经典游戏', file: 'sounds/mario-coin.mp3' },
+        { id: 'mario-1up', name: '超级马里奥 · 1UP', group: '经典游戏', file: 'sounds/mario-1up.mp3' },
+        { id: 'sonic-ring', name: '索尼克 · 金币环', group: '经典游戏', file: 'sounds/sonic-ring.mp3' },
+        { id: 'ps-trophy', name: 'PlayStation · 奖杯', group: '经典游戏', file: 'sounds/ps-trophy.mp3' },
+        { id: 'switch-click', name: 'Switch · 咔哒', group: '经典游戏', file: 'sounds/switch-click.mp3' },
+        { id: 'ac-greetings', name: '动物森友会 · 打招呼', group: '经典游戏', file: 'sounds/ac-greetings.mp3' },
+        { id: 'hk-grub', name: '空洞骑士 · 小幼虫', group: '经典游戏', file: 'sounds/hk-grub.mp3' },
+        { id: 'mgs-alert', name: '合金装备 · 惊叹号', group: '经典游戏', file: 'sounds/mgs-alert.mp3' },
+        { id: 'ui-confirm-1', name: '清脆双音 · 柔和', group: '开源轻提示 (CC0)', file: 'sounds/ui-confirm-1.wav' },
+        { id: 'ui-confirm-2', name: '清脆双音 · 明亮', group: '开源轻提示 (CC0)', file: 'sounds/ui-confirm-2.wav' },
+        { id: 'ui-confirm-3', name: '清脆双音 · 轻快', group: '开源轻提示 (CC0)', file: 'sounds/ui-confirm-3.wav' },
+        { id: 'ui-confirm-4', name: '清脆双音 · 温暖', group: '开源轻提示 (CC0)', file: 'sounds/ui-confirm-4.wav' },
+        { id: 'ui-glass-1', name: '玻璃叮咚 · 轻', group: '开源轻提示 (CC0)', file: 'sounds/ui-glass-1.wav' },
+        { id: 'ui-glass-4', name: '玻璃叮咚 · 响', group: '开源轻提示 (CC0)', file: 'sounds/ui-glass-4.wav' },
+        { id: 'ui-drop-2', name: '水滴气泡 · 轻', group: '开源轻提示 (CC0)', file: 'sounds/ui-drop-2.wav' },
+        { id: 'ui-drop-3', name: '水滴气泡 · 弹', group: '开源轻提示 (CC0)', file: 'sounds/ui-drop-3.wav' },
+        { id: 'ui-pluck-1', name: '拨弦轻音 · 短', group: '开源轻提示 (CC0)', file: 'sounds/ui-pluck-1.wav' },
+        { id: 'ui-pluck-2', name: '拨弦轻音 · 扬', group: '开源轻提示 (CC0)', file: 'sounds/ui-pluck-2.wav' },
+        { id: 'ui-bong-1', name: '柔和木琴叮', group: '开源轻提示 (CC0)', file: 'sounds/ui-bong-1.wav' },
+        { id: 'ui-rise-6', name: '柔和上扬提示', group: '开源轻提示 (CC0)', file: 'sounds/ui-rise-6.wav' },
+        { id: 'ui-question-1', name: '俏皮提问音', group: '开源轻提示 (CC0)', file: 'sounds/ui-question-1.wav' },
+        { id: 'discord-notify', name: 'Discord · 消息提示', group: '日常提示音', file: 'sounds/discord-notify.mp3' },
+        { id: 'iphone-ding', name: 'iPhone · 短信叮', group: '日常提示音', file: 'sounds/iphone-ding.mp3' },
+        { id: 'bell-ding', name: '清脆小铃铛', group: '日常提示音', file: 'sounds/bell-ding.mp3' },
+        { id: 'bubble-pop', name: '清脆泡泡啵', group: '日常提示音', file: 'sounds/bubble-pop.mp3' },
     ];
 
     const DEFAULT_CONFIG = {
@@ -54,7 +81,12 @@
 
     let soundsList = FALLBACK_SOUNDS.slice();
     let config = loadConfig();
-    const blobCache = new Map(); // soundId -> blobUrl
+
+    // 轻量 LRU 内存缓存（避免占用过多内存）
+    const bufferCache = new Map(); // cacheKey -> AudioBuffer
+    const blobCache = new Map();   // cacheKey -> blobUrl（供降级 <audio> 使用）
+    let audioCtx = null;
+    let activeSource = null;
     let hookedAudio = null;
     let originalAudioSrc = 'sounds/message.mp3';
     let mountTimer = null;
@@ -73,7 +105,7 @@
                 ...DEFAULT_CONFIG,
                 ...parsed,
                 volume: typeof parsed.volume === 'number' && !Number.isNaN(parsed.volume)
-                    ? clamp(parsed.volume, 0, 1)
+                    ? clamp(parsed.volume, 0, MAX_VOLUME)
                     : DEFAULT_CONFIG.volume,
             };
         } catch {
@@ -86,6 +118,38 @@
             topWin.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
         } catch (e) {
             console.warn('[ST提示音替换] 保存配置失败:', e);
+        }
+    }
+
+    function getAudioContext() {
+        if (audioCtx) return audioCtx;
+        const Ctx = topWin.AudioContext || topWin.webkitAudioContext;
+        if (!Ctx) return null;
+        try {
+            audioCtx = new Ctx();
+        } catch {
+            audioCtx = null;
+        }
+        return audioCtx;
+    }
+
+    function unlockAudioContext() {
+        const ctx = getAudioContext();
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+    }
+
+    function cacheSet(map, key, val, revokeOldBlob = false) {
+        if (map.has(key)) map.delete(key);
+        map.set(key, val);
+        if (map.size > MAX_CACHE_ITEMS) {
+            const oldestKey = map.keys().next().value;
+            const oldestVal = map.get(oldestKey);
+            map.delete(oldestKey);
+            if (revokeOldBlob && typeof oldestVal === 'string' && oldestVal.startsWith('blob:')) {
+                try { topWin.URL.revokeObjectURL(oldestVal); } catch {}
+            }
         }
     }
 
@@ -109,13 +173,13 @@
         ];
     }
 
-    async function fetchWithFallback(urls, asBlob = false) {
+    async function fetchJsonWithFallback(urls) {
         let lastErr = null;
         for (const url of urls) {
             try {
-                const res = await fetch(url, { cache: asBlob ? 'force-cache' : 'no-cache' });
+                const res = await fetch(url, { cache: 'no-cache' });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return asBlob ? await res.blob() : await res.json();
+                return await res.json();
             } catch (err) {
                 lastErr = err;
             }
@@ -123,33 +187,150 @@
         throw lastErr || new Error('所有远程源均不可用');
     }
 
-    async function resolveSoundSrc(soundId) {
-        if (!soundId || soundId === 'default') {
-            return originalAudioSrc;
+    async function fetchArrayBufferWithFallback(urls) {
+        let lastErr = null;
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, { cache: 'force-cache' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const buf = await res.arrayBuffer();
+                if (buf && buf.byteLength > 0) return buf;
+            } catch (err) {
+                lastErr = err;
+            }
         }
-        if (soundId === 'custom') {
+        throw lastErr || new Error('音频拉取失败');
+    }
+
+    function dataUrlToArrayBuffer(dataUrl) {
+        const idx = dataUrl.indexOf(',');
+        if (idx === -1) return null;
+        const bin = topWin.atob(dataUrl.slice(idx + 1));
+        const len = bin.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = bin.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    function getCurrentCacheKey() {
+        if (config.soundId === 'custom') {
+            if (config.customDataUrl) return `custom:file:${config.customFileName}:${config.customDataUrl.length}`;
+            if (config.customUrl && config.customUrl.trim()) return `custom:url:${config.customUrl.trim()}`;
+            return 'default';
+        }
+        return config.soundId || 'default';
+    }
+
+    function getFallbackDirectUrl() {
+        if (config.soundId === 'custom') {
             if (config.customDataUrl) return config.customDataUrl;
             if (config.customUrl && config.customUrl.trim()) return config.customUrl.trim();
             return originalAudioSrc;
         }
-        if (blobCache.has(soundId)) {
-            return blobCache.get(soundId);
+        if (!config.soundId || config.soundId === 'default') {
+            return originalAudioSrc;
         }
-
-        const item = soundsList.find(s => s.id === soundId);
+        const item = soundsList.find(s => s.id === config.soundId);
         if (!item) return originalAudioSrc;
+        return item.url || getAssetUrls(item.file)[0];
+    }
 
-        const urls = item.url ? [item.url] : getAssetUrls(item.file);
-        try {
-            const blob = await fetchWithFallback(urls, true);
-            if (destroyed) return originalAudioSrc;
-            const blobUrl = topWin.URL.createObjectURL(blob);
-            blobCache.set(soundId, blobUrl);
-            return blobUrl;
-        } catch (err) {
-            console.warn(`[ST提示音替换] 加载音效 "${item.name}" 失败，回退直链:`, err);
-            return urls[0];
+    async function loadAudioBufferForCurrent() {
+        const key = getCurrentCacheKey();
+        if (bufferCache.has(key)) {
+            return bufferCache.get(key);
         }
+
+        const ctx = getAudioContext();
+        if (!ctx) return null;
+
+        let arrayBuf = null;
+        try {
+            if (key === 'default') {
+                const res = await fetch(originalAudioSrc, { cache: 'force-cache' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                arrayBuf = await res.arrayBuffer();
+            } else if (key.startsWith('custom:file:')) {
+                arrayBuf = dataUrlToArrayBuffer(config.customDataUrl);
+            } else if (key.startsWith('custom:url:')) {
+                const res = await fetch(config.customUrl.trim(), { cache: 'force-cache' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                arrayBuf = await res.arrayBuffer();
+            } else {
+                const item = soundsList.find(s => s.id === key);
+                if (!item) return null;
+                const urls = item.url ? [item.url] : getAssetUrls(item.file);
+                arrayBuf = await fetchArrayBufferWithFallback(urls);
+            }
+
+            if (!arrayBuf || destroyed) return null;
+
+            // 顺手保存 Blob URL 供降级使用
+            const blobUrl = topWin.URL.createObjectURL(new Blob([arrayBuf]));
+            cacheSet(blobCache, key, blobUrl, true);
+
+            const decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
+            if (destroyed) return null;
+            cacheSet(bufferCache, key, decoded, false);
+            return decoded;
+        } catch (err) {
+            console.warn('[ST提示音替换] Web Audio 解码失败，将使用原生音频降级播放:', err);
+            return null;
+        }
+    }
+
+    async function playWithWebAudio(gainValue) {
+        const ctx = getAudioContext();
+        if (!ctx) return false;
+
+        if (ctx.state === 'suspended') {
+            try {
+                await ctx.resume();
+            } catch {
+                return false;
+            }
+        }
+
+        const buffer = await loadAudioBufferForCurrent();
+        if (!buffer || destroyed) return false;
+
+        // 停止上一次未播完的提示音
+        if (activeSource) {
+            try { activeSource.stop(); } catch {}
+            activeSource = null;
+        }
+
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+
+        const gainNode = ctx.createGain();
+        gainNode.gain.setValueAtTime(gainValue, ctx.currentTime);
+
+        if (gainValue > 1.0) {
+            // 超过 100% 时串接防破音限幅器（软压缩），既提响度又防爆音
+            const limiter = ctx.createDynamicsCompressor();
+            limiter.threshold.setValueAtTime(-2, ctx.currentTime);
+            limiter.knee.setValueAtTime(6, ctx.currentTime);
+            limiter.ratio.setValueAtTime(12, ctx.currentTime);
+            limiter.attack.setValueAtTime(0.002, ctx.currentTime);
+            limiter.release.setValueAtTime(0.1, ctx.currentTime);
+
+            source.connect(gainNode);
+            gainNode.connect(limiter);
+            limiter.connect(ctx.destination);
+        } else {
+            source.connect(gainNode);
+            gainNode.connect(ctx.destination);
+        }
+
+        activeSource = source;
+        source.onended = () => {
+            if (activeSource === source) activeSource = null;
+        };
+        source.start(0);
+        return true;
     }
 
     function hookAudioElement() {
@@ -165,50 +346,49 @@
 
         audio.__stMsrHooked = true;
         audio.play = function () {
-            const vol = clamp(Number(config.volume), 0, 1);
-            this.volume = vol;
+            const vol = clamp(Number(config.volume), 0, MAX_VOLUME);
             if (vol <= 0) {
                 return Promise.resolve();
             }
-            return nativePlay.call(this);
+
+            // 优先走 Web Audio API（支持 0%~300% 增益 & iOS 音量控制），失败时自动无缝降级到原生 <audio>
+            return playWithWebAudio(vol).then(ok => {
+                if (ok || destroyed) return;
+                const key = getCurrentCacheKey();
+                const fallbackSrc = blobCache.get(key) || getFallbackDirectUrl();
+                if (this.getAttribute('src') !== fallbackSrc) {
+                    this.src = fallbackSrc;
+                }
+                this.volume = clamp(vol, 0, 1);
+                return nativePlay.call(this);
+            }).catch(() => {
+                this.volume = clamp(vol, 0, 1);
+                return nativePlay.call(this);
+            });
         };
 
         hookedAudio = audio;
         return audio;
     }
 
-    async function applyCurrentSound() {
-        const audio = hookAudioElement();
-        if (!audio) return;
-
-        const targetSrc = await resolveSoundSrc(config.soundId);
-        if (destroyed) return;
-
-        if (audio.getAttribute('src') !== targetSrc) {
-            audio.src = targetSrc;
-            try {
-                audio.load();
-            } catch {
-                // ignore
-            }
-        }
-        audio.volume = clamp(Number(config.volume), 0, 1);
+    async function preloadCurrentSound() {
+        hookAudioElement();
+        // 仅按需预加载当前选中的 1 个音效，绝不批量拉取其他音效
+        await loadAudioBufferForCurrent();
     }
 
     async function previewCurrentSound(btnEl) {
+        unlockAudioContext();
         const audio = hookAudioElement();
         if (!audio) return;
 
         if (btnEl) btnEl.classList.add('st-msr-loading');
         try {
-            await applyCurrentSound();
-            if (destroyed) return;
             audio.pause();
             audio.currentTime = 0;
-            const p = audio.play();
-            if (p && typeof p.catch === 'function') {
-                p.catch(err => console.warn('[ST提示音替换] 试听播放被拦截:', err));
-            }
+            await audio.play();
+        } catch (err) {
+            console.warn('[ST提示音替换] 试听播放失败:', err);
         } finally {
             if (btnEl) btnEl.classList.remove('st-msr-loading');
         }
@@ -292,11 +472,17 @@
     cursor: pointer;
 }
 #${PANEL_ID} .st-msr-vol-val {
-    width: 34px;
+    width: 40px;
     text-align: right;
     font-variant-numeric: tabular-nums;
     opacity: 0.85;
     flex-shrink: 0;
+    transition: color 0.15s ease;
+}
+#${PANEL_ID} .st-msr-vol-val.st-msr-boost {
+    color: var(--SmartThemeQuoteColor, #7aa2f7);
+    font-weight: 600;
+    opacity: 1;
 }
 #${PANEL_ID} .st-msr-custom {
     display: none;
@@ -340,7 +526,6 @@
         optDefault.textContent = '酒馆默认提示音';
         selectEl.appendChild(optDefault);
 
-        // 按游戏分组
         const groupMap = new Map();
         for (const s of soundsList) {
             const g = s.group || '预设音效';
@@ -365,15 +550,21 @@
         optCustom.textContent = '自定义音频 (链接 / 本地上传)';
         selectEl.appendChild(optCustom);
 
-        // 恢复当前选中项
         const validIds = new Set(['default', 'custom', ...soundsList.map(s => s.id)]);
-        selectEl.value = validIds.has(config.soundId) ? config.soundId : 'default';
+        if (!validIds.has(config.soundId)) {
+            config.soundId = 'default';
+            saveConfig();
+        }
+        selectEl.value = config.soundId;
     }
 
-    function updateVolumeIcon(iconEl, vol) {
-        if (vol <= 0) {
+    function updateVolumeUI(iconEl, valEl, vol) {
+        const pct = Math.round(vol * 100);
+        valEl.textContent = `${pct}%`;
+        valEl.classList.toggle('st-msr-boost', pct > 100);
+        if (pct <= 0) {
             iconEl.className = 'fa-solid fa-volume-xmark st-msr-vol-icon';
-        } else if (vol < 0.5) {
+        } else if (pct < 50) {
             iconEl.className = 'fa-solid fa-volume-low st-msr-vol-icon';
         } else {
             iconEl.className = 'fa-solid fa-volume-high st-msr-vol-icon';
@@ -403,25 +594,24 @@
         rowSelect.appendChild(selectEl);
         rowSelect.appendChild(playBtn);
 
-        // 第二行：音量图标 + 滑块 + 百分比
+        // 第二行：音量图标 + 滑块 (0%~300%) + 百分比
         const rowVol = topDoc.createElement('div');
         rowVol.className = 'st-msr-row';
 
         const volIcon = topDoc.createElement('i');
-        updateVolumeIcon(volIcon, config.volume);
 
         const volSlider = topDoc.createElement('input');
         volSlider.type = 'range';
         volSlider.className = 'st-msr-slider';
         volSlider.min = '0';
-        volSlider.max = '100';
+        volSlider.max = String(Math.round(MAX_VOLUME * 100));
         volSlider.step = '1';
         volSlider.value = String(Math.round(config.volume * 100));
-        volSlider.title = '调节提示音音量';
+        volSlider.title = '调节提示音音量 (0% - 300% 增益)';
 
         const volVal = topDoc.createElement('span');
         volVal.className = 'st-msr-vol-val';
-        volVal.textContent = `${Math.round(config.volume * 100)}%`;
+        updateVolumeUI(volIcon, volVal, config.volume);
 
         rowVol.appendChild(volIcon);
         rowVol.appendChild(volSlider);
@@ -476,7 +666,7 @@
             config.soundId = selectEl.value;
             saveConfig();
             customBox.classList.toggle('st-msr-show', config.soundId === 'custom');
-            await applyCurrentSound();
+            await preloadCurrentSound();
         });
 
         playBtn.addEventListener('click', () => {
@@ -484,13 +674,9 @@
         });
 
         volSlider.addEventListener('input', () => {
-            const pct = clamp(parseInt(volSlider.value, 10) || 0, 0, 100);
+            const pct = clamp(parseInt(volSlider.value, 10) || 0, 0, Math.round(MAX_VOLUME * 100));
             config.volume = pct / 100;
-            volVal.textContent = `${pct}%`;
-            updateVolumeIcon(volIcon, config.volume);
-            if (hookedAudio) {
-                hookedAudio.volume = config.volume;
-            }
+            updateVolumeUI(volIcon, volVal, config.volume);
         });
 
         volSlider.addEventListener('change', () => {
@@ -506,7 +692,7 @@
             }
             saveConfig();
             refreshHint();
-            await applyCurrentSound();
+            await preloadCurrentSound();
         });
 
         uploadBtn.addEventListener('click', () => fileInput.click());
@@ -527,7 +713,7 @@
                 urlInput.value = '';
                 saveConfig();
                 refreshHint();
-                await applyCurrentSound();
+                await preloadCurrentSound();
                 previewCurrentSound(playBtn);
             };
             reader.readAsDataURL(file);
@@ -566,26 +752,34 @@
             }
         }
 
-        applyCurrentSound();
+        // 仅按需预加载当前选中的 1 个音效
+        preloadCurrentSound();
         return true;
     }
 
     async function refreshRemoteManifest() {
         try {
-            const data = await fetchWithFallback(getManifestUrls(), false);
+            const data = await fetchJsonWithFallback(getManifestUrls());
             if (destroyed || !data || !Array.isArray(data.sounds) || !data.sounds.length) return;
             soundsList = data.sounds;
             const panel = topDoc.getElementById(PANEL_ID);
             if (panel && panel._selectEl) {
                 populateSelectOptions(panel._selectEl);
             }
-            applyCurrentSound();
+            preloadCurrentSound();
         } catch (err) {
             console.warn('[ST提示音替换] 拉取远程音效清单失败，使用内置列表:', err);
         }
     }
 
+    function onUserGesture() {
+        unlockAudioContext();
+    }
+
     function start() {
+        topDoc.addEventListener('pointerdown', onUserGesture, { passive: true, capture: true });
+        topDoc.addEventListener('keydown', onUserGesture, { passive: true, capture: true });
+
         let attempts = 0;
         const tryMount = () => {
             if (destroyed) return;
@@ -602,10 +796,22 @@
 
     function cleanup() {
         destroyed = true;
+        topDoc.removeEventListener('pointerdown', onUserGesture, true);
+        topDoc.removeEventListener('keydown', onUserGesture, true);
+
         if (mountTimer) {
             clearTimeout(mountTimer);
             mountTimer = null;
         }
+        if (activeSource) {
+            try { activeSource.stop(); } catch {}
+            activeSource = null;
+        }
+        if (audioCtx) {
+            try { audioCtx.close(); } catch {}
+            audioCtx = null;
+        }
+
         const panel = topDoc.getElementById(PANEL_ID);
         if (panel) panel.remove();
         const style = topDoc.getElementById(STYLE_ID);
@@ -616,18 +822,14 @@
                 delete hookedAudio.play;
                 delete hookedAudio.__stMsrHooked;
                 hookedAudio.src = originalAudioSrc;
-            } catch {
-                // ignore
-            }
+            } catch {}
         }
+
         for (const url of blobCache.values()) {
-            try {
-                topWin.URL.revokeObjectURL(url);
-            } catch {
-                // ignore
-            }
+            try { topWin.URL.revokeObjectURL(url); } catch {}
         }
         blobCache.clear();
+        bufferCache.clear();
     }
 
     topWin[GLOBAL_KEY] = {

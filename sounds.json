@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "sounds": [
     {
       "id": "zelda-secret",
@@ -32,12 +32,6 @@
       "file": "sounds/stardew-fishing.mp3"
     },
     {
-      "id": "stardew-valley",
-      "name": "经典提示",
-      "group": "星露谷物语",
-      "file": "sounds/stardew-valley.mp3"
-    },
-    {
       "id": "mc-xp",
       "name": "经验球",
       "group": "Minecraft",
@@ -64,20 +58,152 @@
     {
       "id": "mario-coin",
       "name": "超级马里奥 · 吃金币",
-      "group": "其他经典",
+      "group": "经典游戏",
       "file": "sounds/mario-coin.mp3"
+    },
+    {
+      "id": "mario-1up",
+      "name": "超级马里奥 · 1UP",
+      "group": "经典游戏",
+      "file": "sounds/mario-1up.mp3"
+    },
+    {
+      "id": "sonic-ring",
+      "name": "索尼克 · 金币环",
+      "group": "经典游戏",
+      "file": "sounds/sonic-ring.mp3"
+    },
+    {
+      "id": "ps-trophy",
+      "name": "PlayStation · 奖杯",
+      "group": "经典游戏",
+      "file": "sounds/ps-trophy.mp3"
+    },
+    {
+      "id": "switch-click",
+      "name": "Switch · 咔哒",
+      "group": "经典游戏",
+      "file": "sounds/switch-click.mp3"
     },
     {
       "id": "ac-greetings",
       "name": "动物森友会 · 打招呼",
-      "group": "其他经典",
+      "group": "经典游戏",
       "file": "sounds/ac-greetings.mp3"
+    },
+    {
+      "id": "hk-grub",
+      "name": "空洞骑士 · 小幼虫",
+      "group": "经典游戏",
+      "file": "sounds/hk-grub.mp3"
+    },
+    {
+      "id": "mgs-alert",
+      "name": "合金装备 · 惊叹号",
+      "group": "经典游戏",
+      "file": "sounds/mgs-alert.mp3"
+    },
+    {
+      "id": "ui-confirm-1",
+      "name": "清脆双音 · 柔和",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-confirm-1.wav"
+    },
+    {
+      "id": "ui-confirm-2",
+      "name": "清脆双音 · 明亮",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-confirm-2.wav"
+    },
+    {
+      "id": "ui-confirm-3",
+      "name": "清脆双音 · 轻快",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-confirm-3.wav"
+    },
+    {
+      "id": "ui-confirm-4",
+      "name": "清脆双音 · 温暖",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-confirm-4.wav"
+    },
+    {
+      "id": "ui-glass-1",
+      "name": "玻璃叮咚 · 轻",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-glass-1.wav"
+    },
+    {
+      "id": "ui-glass-4",
+      "name": "玻璃叮咚 · 响",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-glass-4.wav"
+    },
+    {
+      "id": "ui-drop-2",
+      "name": "水滴气泡 · 轻",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-drop-2.wav"
+    },
+    {
+      "id": "ui-drop-3",
+      "name": "水滴气泡 · 弹",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-drop-3.wav"
+    },
+    {
+      "id": "ui-pluck-1",
+      "name": "拨弦轻音 · 短",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-pluck-1.wav"
+    },
+    {
+      "id": "ui-pluck-2",
+      "name": "拨弦轻音 · 扬",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-pluck-2.wav"
+    },
+    {
+      "id": "ui-bong-1",
+      "name": "柔和木琴叮",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-bong-1.wav"
+    },
+    {
+      "id": "ui-rise-6",
+      "name": "柔和上扬提示",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-rise-6.wav"
+    },
+    {
+      "id": "ui-question-1",
+      "name": "俏皮提问音",
+      "group": "开源轻提示 (CC0)",
+      "file": "sounds/ui-question-1.wav"
     },
     {
       "id": "discord-notify",
       "name": "Discord · 消息提示",
-      "group": "其他经典",
+      "group": "日常提示音",
       "file": "sounds/discord-notify.mp3"
+    },
+    {
+      "id": "iphone-ding",
+      "name": "iPhone · 短信叮",
+      "group": "日常提示音",
+      "file": "sounds/iphone-ding.mp3"
+    },
+    {
+      "id": "bell-ding",
+      "name": "清脆小铃铛",
+      "group": "日常提示音",
+      "file": "sounds/bell-ding.mp3"
+    },
+    {
+      "id": "bubble-pop",
+      "name": "清脆泡泡啵",
+      "group": "日常提示音",
+      "file": "sounds/bubble-pop.mp3"
     }
   ]
 }
